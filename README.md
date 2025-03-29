@@ -1,1 +1,4 @@
-i do not know git i messed up some stuff i think also app.py is a placeholder rn
+YES we are rolling our own auth
+YES we barely know what we are doing
+YES we are stupid
+YES we are winning this hackathon
