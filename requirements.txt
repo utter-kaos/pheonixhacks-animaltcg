@@ -1,0 +1,36 @@
+# Core
+Flask
+Flask-SQLAlchemy
+Flask-WTF
+Flask-Login
+python-dotenv
+
+# Database
+SQLAlchemy
+alembic
+
+# Data
+pandas
+numpy
+
+# Images & Files
+Pillow
+requests
+
+# Security
+bcrypt
+Flask-Talisman
+
+# Frontend
+Flask-Assets
+cssmin
+jsmin
+
+# Testing
+pytest
+Faker
+
+# Utilities
+python-dateutil
+python-slugify
+pyyaml
