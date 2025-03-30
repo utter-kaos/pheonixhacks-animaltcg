@@ -70,20 +70,20 @@ Follow these steps to set up and run the project locally:
 ## Project Structure
 
 /workspaces/pheonixhacks-animaltcg
-├── app.py                # Main Flask application
-├── dbsetup.py            # Database setup and initialization
-├── static/               # Static files (CSS, JS, images)
-│   ├── styles.css        # Main stylesheet
-│   ├── js/
-│   │   └── battle.js     # JavaScript for battle mechanics
-│   └── images/           # Animal images and placeholders
-├── templates/            # HTML templates
-│   ├── index.html        # Main UI
-│   └── profile.html      # Profile page
-├── battle/               # Battle-related data
-│   └── good.csv          # Card stats for battles
-├── Animal Dataset.csv    # Dataset of animals with stats
-└── README.md             # Project documentation
+├── app.py                # Main Flask application \
+├── dbsetup.py            # Database setup and initialization \
+├── static/               # Static files (CSS, JS, images) \
+│   ├── styles.css        # Main stylesheet \
+│   ├── js/ \
+│   │   └── battle.js     # JavaScript for battle mechanics \
+│   └── images/           # Animal images and placeholders \
+├── templates/            # HTML templates \
+│   ├── index.html        # Main UI \
+│   └── profile.html      # Profile page \
+├── battle/               # Battle-related data \
+│   └── good.csv          # Card stats for battles \ 
+├── Animal Dataset.csv    # Dataset of animals with stats \
+└── README.md             # Project documentation \
 
 ---
 
