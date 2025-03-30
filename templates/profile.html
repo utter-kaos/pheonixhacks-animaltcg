@@ -189,9 +189,9 @@
     
     <!-- Navigation Tabs -->
     <div class="navbar">
-        <a href="index.html" class="nav-tab">Packs</a>
-        <a href="trading.html" class="nav-tab">Trading</a>
-        <a href="profile.html" class="nav-tab active">Profile</a>
+        <a href="/" class="nav-tab">Packs</a>
+        <a href="/trading" class="nav-tab">Trading</a>
+        <a href="/profile" class="nav-tab active">Profile</a>
     </div>
     
     <!-- Profile Content -->
@@ -199,7 +199,7 @@
         <div class="avatar">P</div>
         <div>
             <h2>Player123</h2>
-            <p>Member since: January 2023</p>
+            <p>Member since: March 2025</p>
             <p>Coins: <strong>1,250</strong></p>
         </div>
     </div>
@@ -274,7 +274,14 @@
             ];
             
             // Load initial collection
-            loadProfileCollection();
+            loadProfileCollection(userCollection.map(item => {
+                const cardData = cardDatabase.find(card => card.id === item.cardId);
+                return {
+                    ...cardData,
+                    count: item.count,
+                    image_path: `${cardData.image}.png`
+                };
+            }));
         }
         
         // Create card HTML element
@@ -299,34 +306,49 @@
         }
         
         // Load profile collection with filtering
-        function loadProfileCollection(filter = 'all') {
+        function loadProfileCollection(collection) {
             const profileCollection = document.getElementById('profile-collection');
             profileCollection.innerHTML = '';
-            
-            // Update filter buttons
-            document.querySelectorAll('.rarity-filter .filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event?.target.classList.add('active');
-            
-            userCollection.forEach(item => {
-                const cardData = cardDatabase.find(card => card.id === item.cardId);
-                if (cardData && (filter === 'all' || cardData.rarity === filter)) {
-                    const card = createCardElement(cardData);
-                    const countBadge = document.createElement('div');
-                    countBadge.className = 'card-rarity';
-                    countBadge.style.left = '5px';
-                    countBadge.style.right = 'auto';
-                    countBadge.textContent = `x${item.count}`;
-                    card.appendChild(countBadge);
-                    profileCollection.appendChild(card);
-                }
+            collection.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card';
+                cardElement.innerHTML = `
+                    <div class="card-rarity">${card.rarity ? card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1) : 'Unknown'}</div>
+                    <img src="static/${card.image_path}" alt="${card.name}" class="card-image">
+                    <div class="card-name">${card.name}</div>
+                    <div class="card-count">x${card.count}</div>
+                `;
+                profileCollection.appendChild(cardElement);
             });
         }
+
+        async function loadProfileData() {
+            try {
+                const response = await fetch('/user_cards', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    loadProfileCollection(data.cards);
+                } else {
+                    console.error('Failed to load profile data');
+                }
+            } catch (err) {
+                console.error('Error loading profile data:', err);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadProfileData);
         
         // Filter collection in profile
         function filterCollection(rarity) {
-            loadProfileCollection(rarity);
+            const filteredCollection = userCollection.map(item => {
+                const cardData = cardDatabase.find(card => card.id === item.cardId);
+                return {
+                    ...cardData,
+                    count: item.count,
+                    image_path: `${cardData.image}.png`
+                };
+            }).filter(card => rarity === 'all' || card.rarity === rarity);
+            loadProfileCollection(filteredCollection);
         }
         
         // Initialize the game when page loads

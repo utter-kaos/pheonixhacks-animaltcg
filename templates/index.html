@@ -23,6 +23,8 @@
         <div class="nav-tab active" onclick="switchTab('packs')">Packs</div>
         <div class="nav-tab" onclick="switchTab('trading')">Trading</div>
         <div class="nav-tab" onclick="switchTab('profile')">Profile</div>
+        <div class="nav-tab" onclick="switchTab('leaderboard')">Leaderboard</div>
+        <div class="nav-tab" onclick="switchTab('battles')">Battles</div>
     </div>
     
     <!-- Packs Tab Content -->
@@ -36,124 +38,60 @@
         </div>
         <h2>Your Collection <span id="collectionSize">(0/205)</span></h2>
         <button class="clear-cards-btn" onclick="clearCards()">Clear Cards</button>
-        <div id="collection-grid" class="cards-grid"></div>
+        <div id="collection-grid" class="cards-grid">
+            <div class="card" data-card="Lion" onclick="selectCard(this)">Lion</div>
+            <div class="card" data-card="Tiger" onclick="selectCard(this)">Tiger</div>
+            <div class="card" data-card="Bear" onclick="selectCard(this)">Bear</div>
+            <!-- Add a trade button -->
+            <button onclick="trade()">Trade</button>
+        </div>
     </div>
 
-    <style>
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 20px;
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .title {
-            font-size: 24px;
-            font-weight: bold;
-            margin: 0;
-        }
-
-        .auth-section {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .auth-btn {
-            padding: 5px 10px;
-            border: none;
-            background-color: #007bff;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .auth-btn:hover {
-            background-color: #0056b3;
-        }
-
-        .username-display {
-            font-weight: bold;
-        }
-
-        .pack-section {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            justify-content: center;
-        }
-
-        .pack {
-            text-align: center;
-            cursor: pointer;
-            border: 2px solid transparent;
-            border-radius: 10px;
-            padding: 10px;
-            transition: border-color 0.3s;
-        }
-
-        .pack:hover {
-            border-color: #3498db;
-        }
-
-        .pack.selected {
-            border-color: #e74c3c;
-        }
-
-        .pack img {
-            width: 150px;
-            height: 200px;
-            object-fit: cover;
-            border-radius: 5px;
-        }
-
-        .pack-name {
-            margin-top: 10px;
-            font-weight: bold;
-        }
-
-        .pack-cost {
-            margin-top: 5px;
-            color: #7f8c8d;
-        }
-
-        .clear-cards-btn {
-            margin: 10px 0;
-            padding: 5px 10px;
-            border: none;
-            background-color: #dc3545;
-            color: white;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .clear-cards-btn:hover {
-            background-color: #c82333;
-        }
-
-        .selected-pack-actions {
-            text-align: center;
-            margin-top: 20px;
-            display: none;
-        }
-
-        .selected-pack-name {
-            font-weight: bold;
-        }
-    </style>
-    
     <!-- Trading Tab Content -->
     <div id="trading" class="tab-content">
+        <div class="trade-header">
+            <h2>Trading System</h2>
+        </div>
+        <!-- Horizontally scrollable card selection row -->
+        <div class="cards-scrollable" id="card-selection-row">
+            <!-- User's cards will be dynamically loaded here -->
+        </div>
+        <div class="trade-container">
+            <!-- Left Column: Recipient Username -->
+            <div class="trade-column">
+                <h3>Trade Setup</h3>
+                <form id="tradeForm" method="POST" action="/create_trade">
+                    <input type="text" name="recipient" id="recipientInput" placeholder="Enter Recipient Username" required>
+                    <textarea name="note" placeholder="Add a note for your trade (optional)" rows="3"></textarea>
+                    <button type="button" class="trade-btn" onclick="loadOpponentCards()">Load Opponent's Cards</button>
+                    <button type="submit" class="trade-btn">Send Trade</button>
+                </form>
+            </div>
+
+            <!-- Opponent's Cards Column -->
+            <div class="trade-column">
+                <h3>Opponent's Cards</h3>
+                <div id="opponent-cards" class="cards-scrollable">
+                    <!-- Opponent's cards will be dynamically loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Outgoing Trades Section -->
         <div class="trade-container">
             <div class="trade-column">
-                <h3 class="trade-header">Your Cards</h3>
-                <div id="your-cards" class="cards-grid"></div>
+                <h3>Outgoing Trades</h3>
+                <div id="outgoing-trades" class="trade-list">
+                    <!-- Outgoing trades will be dynamically loaded here -->
+                </div>
             </div>
+
+            <!-- Incoming Trades Section -->
             <div class="trade-column">
-                <h3 class="trade-header">Trade Offers</h3>
-                <div id="trade-offers" class="cards-grid"></div>
+                <h3>Incoming Trades</h3>
+                <div id="incoming-trades" class="trade-list">
+                    <!-- Incoming trades will be dynamically loaded here -->
+                </div>
             </div>
         </div>
     </div>
@@ -181,6 +119,92 @@
             <div class="stat-card">
                 <div class="stat-value" id="rareCards">0</div>
                 <div class="stat-label">Rare Cards</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">25</div>
+                <div class="stat-label">Total Wins</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">10</div>
+                <div class="stat-label">Total Losses</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">71%</div>
+                <div class="stat-label">Win Rate</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Tab Content -->
+    <div id="leaderboard" class="tab-content">
+        <h2>Leaderboard</h2>
+        <p>Coming soon: View the top players and their stats!</p>
+    </div>
+
+    <!-- Battles Tab Content -->
+    <div id="battles" class="tab-content">
+        <h2>Battles</h2>
+        <div class="battle-container">
+            <!-- Outgoing Battles Section -->
+            <div class="battle-column">
+                <h3>Outgoing Battles</h3>
+                <div id="outgoing-battles" class="battle-list">
+                    <!-- Outgoing battles will be dynamically loaded here -->
+                </div>
+            </div>
+
+            <!-- Incoming Battles Section -->
+            <div class="battle-column">
+                <h3>Incoming Battles</h3>
+                <div id="incoming-battles" class="battle-list">
+                    <!-- Incoming battles will be dynamically loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <div id="battle-setup" class="battle-setup">
+            <h3>Challenge an Opponent</h3>
+            <input type="text" id="opponentUsername" placeholder="Enter opponent's username">
+            <button onclick="loadBattleCards()">Select Cards</button>
+        </div>
+
+        <div id="card-selection" class="card-selection" style="display: none;">
+            <h3>Select Your Cards</h3>
+            <div class="cards-scrollable" id="battle-card-selection">
+                <!-- User's cards will be dynamically loaded here -->
+            </div>
+            <button onclick="confirmCardSelection()">Confirm Selection</button>
+            <button class="cancel-btn" onclick="cancelBattleSelection()">Cancel</button>
+        </div>
+
+        <div id="battle-arena" class="battle-arena" style="display: none;">
+            <div class="opponent-section">
+                <h3>Opponent</h3>
+                <div id="opponent-active-card" class="card"></div>
+                <div id="opponent-deck" class="deck">
+                    <div class="card" id="opponent-card-1"></div>
+                    <div class="card" id="opponent-card-2"></div>
+                </div>
+            </div>
+
+            <div id="battle-console" class="battle-console">
+                <h3>Battle Console</h3>
+                <div id="battle-log"></div>
+            </div>
+
+            <div class="user-section">
+                <h3>Your Cards</h3>
+                <div id="user-active-card" class="card"></div>
+                <div id="user-deck" class="deck">
+                    <div class="card" id="user-card-1"></div>
+                    <div class="card" id="user-card-2"></div>
+                </div>
+                <div class="move-buttons">
+                    <button onclick="useMove(1)">Move 1</button>
+                    <button onclick="useMove(2)">Move 2</button>
+                    <button onclick="useMove(3)">Move 3</button>
+                </div>
+                <button class="abort-btn" onclick="abortBattle()">Abort Battle</button>
             </div>
         </div>
     </div>
@@ -274,53 +298,87 @@
             }
         }
 
-        // Function to update the collection size
-        function updateCollectionSize(count) {
-            document.getElementById('collectionSize').textContent = `(${count}/205)`;
+        // Function to update the collection size dynamically
+        async function updateCollectionSize() {
+            try {
+                const response = await fetch('/user_cards', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    const uniqueCardsCount = data.cards.length; // Count unique cards
+                    document.getElementById('collectionSize').textContent = `(${uniqueCardsCount}/205)`; // Update the counter
+                } else {
+                    console.error('Failed to fetch user cards for collection size.');
+                }
+            } catch (err) {
+                console.error('Error updating collection size:', err);
+            }
         }
 
-        // Function to display cards in the collection
+        // Function to display cards in the collection grid
         function displayCards(cards) {
             const collectionGrid = document.getElementById('collection-grid');
-            const yourCardsGrid = document.getElementById('your-cards');
-            collectionGrid.innerHTML = '';
-            yourCardsGrid.innerHTML = '';
+            collectionGrid.innerHTML = ''; // Clear existing cards
 
             cards.forEach(card => {
                 const cardElement = document.createElement('div');
                 cardElement.className = 'card';
                 cardElement.innerHTML = `
-                    <div class="card-rarity">${card.rarity}</div>
+                    <div class="card-rarity">${card.rarity ? card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1) : 'Unknown'}</div>
                     <img src="static/${card.image_path}" alt="${card.name}" class="card-image" onerror="this.src='static/images/No_Image_Available.jpg'">
                     <div class="card-name">${card.name}</div>
                     <div class="card-attack"><strong>Attack:</strong> ${card.attack}</div>
                     <div class="card-description"><strong>Description:</strong> ${card.attack_description}</div>
                 `;
-
-                // Add the card to both the collection grid and the user's cards grid
-                collectionGrid.appendChild(cardElement.cloneNode(true));
-                yourCardsGrid.appendChild(cardElement.cloneNode(true));
+                collectionGrid.appendChild(cardElement);
             });
-
-            // Update the collection size
-            updateCollectionSize(cards.length);
         }
 
-        // Load user cards dynamically
+        // Function to display cards in the trading card selection row
+        function displayCardSelection(cards) {
+            const cardSelectionRow = document.getElementById('card-selection-row');
+            cardSelectionRow.innerHTML = ''; // Clear existing cards
+
+            cards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'trading-card';
+                cardElement.dataset.cardId = card.id;
+                cardElement.innerHTML = `
+                    <div class="card-rarity">${card.rarity ? card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1) : 'Unknown'}</div>
+                    <img src="static/${card.image_path}" alt="${card.name}" class="card-image" onerror="this.src='static/images/No_Image_Available.jpg'">
+                    <p class="card-name">${card.name}</p>
+                `;
+                cardElement.addEventListener('click', () => toggleCardSelection(cardElement));
+                cardSelectionRow.appendChild(cardElement);
+            });
+        }
+
+        // Load user cards dynamically for the packs page
         async function loadUserCards() {
             try {
-                const response = await fetch('/user_cards', {
-                    credentials: 'include'
-                });
-
+                const response = await fetch('/user_cards', { credentials: 'include' });
                 if (response.ok) {
                     const data = await response.json();
-                    displayCards(data.cards);
+                    displayCards(data.cards); // Display cards in the collection grid
                 } else {
                     console.error('Failed to load user cards');
                 }
             } catch (err) {
                 console.error('Error loading user cards:', err);
+            }
+        }
+
+        // Load user cards dynamically for the trading page
+        async function loadTradingCards() {
+            try {
+                const response = await fetch('/user_cards', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    displayCardSelection(data.cards); // Display cards in the trading card selection row
+                } else {
+                    console.error('Failed to load trading cards');
+                }
+            } catch (err) {
+                console.error('Error loading trading cards:', err);
             }
         }
 
@@ -471,12 +529,272 @@
             }
         }
 
+        // Load user's cards for trading
+        let selectedCards = []; // Track selected cards
+
+        async function loadTradingCards() {
+            try {
+                const response = await fetch('/user_cards', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    displayCardSelection(data.cards); // Display cards in the trading card selection row
+                } else {
+                    console.error('Error loading trading cards');
+                }
+            } catch (err) {
+                console.error('Network error while loading trading cards:', err);
+            }
+        }
+
+        // Toggle card selection
+        function toggleCardSelection(cardElement) {
+            const cardId = parseInt(cardElement.dataset.cardId, 10);
+            if (selectedCards.includes(cardId)) {
+                selectedCards = selectedCards.filter(id => id !== cardId);
+                cardElement.classList.remove('selected');
+            } else {
+                if (selectedCards.length < 3) {
+                    selectedCards.push(cardId);
+                    cardElement.classList.add('selected');
+                } else {
+                    alert('You can only select up to 3 cards.');
+                }
+            }
+            console.log('Selected cards:', selectedCards);
+        }
+
+        // Load opponent's cards dynamically
+        async function loadOpponentCards() {
+            const recipient = document.getElementById('recipientInput').value.trim();
+            if (!recipient) {
+                alert('Please enter a recipient username.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/opponent_cards?username=${encodeURIComponent(recipient)}`, { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.cards.length === 0) {
+                        alert('No cards found for this opponent.');
+                    } else {
+                        displayOpponentCards(data.cards);
+                    }
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to load opponent cards.');
+                }
+            } catch (err) {
+                console.error('Error loading opponent cards:', err);
+                alert('An error occurred while loading opponent cards. Please try again.');
+            }
+        }
+
+        // Display opponent's cards
+        function displayOpponentCards(cards) {
+            const opponentCardsContainer = document.getElementById('opponent-cards');
+            opponentCardsContainer.innerHTML = ''; // Clear existing cards
+
+            cards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'trading-card';
+                cardElement.dataset.cardId = card.id;
+                cardElement.innerHTML = `
+                    <div class="card-rarity">${card.rarity ? card.rarity.charAt(0).toUpperCase() + card.rarity.slice(1) : 'Unknown'}</div>
+                    <img src="static/${card.image_path}" alt="${card.name}" class="card-image" onerror="this.src='static/images/No_Image_Available.jpg'">
+                    <p class="card-name">${card.name}</p>
+                `;
+                cardElement.addEventListener('click', () => toggleOpponentCardSelection(cardElement));
+                opponentCardsContainer.appendChild(cardElement);
+            });
+        }
+
+        // Track selected opponent cards
+        let selectedOpponentCards = [];
+
+        // Toggle opponent card selection
+        function toggleOpponentCardSelection(cardElement) {
+            const cardId = parseInt(cardElement.dataset.cardId, 10);
+            if (selectedOpponentCards.includes(cardId)) {
+                selectedOpponentCards = selectedOpponentCards.filter(id => id !== cardId);
+                cardElement.classList.remove('selected');
+            } else {
+                selectedOpponentCards.push(cardId);
+                cardElement.classList.add('selected');
+            }
+            console.log('Selected opponent cards:', selectedOpponentCards);
+        }
+
+        document.getElementById('tradeForm').addEventListener('submit', function (event) {
+            event.preventDefault(); // Prevent default form submission
+            if (selectedCards.length === 0 || selectedOpponentCards.length === 0) {
+                alert('Please select at least one card from both sides to create a trade.');
+                return;
+            }
+
+            const recipient = document.getElementById('recipientInput').value;
+            const note = document.querySelector('textarea[name="note"]').value;
+
+            fetch('/create_trade', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recipient,
+                    offered_cards: selectedCards,
+                    requested_cards: selectedOpponentCards,
+                    note
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    alert('Trade created successfully!');
+                    selectedCards = [];
+                    selectedOpponentCards = [];
+                    document.querySelectorAll('.trading-card.selected').forEach(card => card.classList.remove('selected'));
+                }
+            })
+            .catch(err => console.error('Error creating trade:', err));
+        });
+
+        // Load outgoing trades
+        async function loadOutgoingTrades() {
+            try {
+                const response = await fetch('/outgoing_trades', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    displayOutgoingTrades(data.trades);
+                }
+            } catch (err) {
+                console.error('Error loading outgoing trades:', err);
+            }
+        }
+
+        // Display outgoing trades
+        function displayOutgoingTrades(trades) {
+            const outgoingTradesContainer = document.getElementById('outgoing-trades');
+            outgoingTradesContainer.innerHTML = '';
+            trades.forEach(trade => {
+                const tradeElement = document.createElement('div');
+                tradeElement.className = 'trade-entry';
+                tradeElement.textContent = `Trade ID: ${trade.id}, Offered: ${trade.offered_stacks}, Status: ${trade.status}`;
+                outgoingTradesContainer.appendChild(tradeElement);
+            });
+        }
+
+        // Load incoming trades
+        async function loadIncomingTrades() {
+            try {
+                const response = await fetch('/incoming_trades', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    displayIncomingTrades(data.trades);
+                }
+            } catch (err) {
+                console.error('Error loading incoming trades:', err);
+            }
+        }
+
+        // Display incoming trades with Accept/Decline buttons
+        function displayIncomingTrades(trades) {
+            const incomingTradesContainer = document.getElementById('incoming-trades');
+            incomingTradesContainer.innerHTML = '';
+            trades.forEach(trade => {
+                const tradeElement = document.createElement('div');
+                tradeElement.className = 'trade-entry';
+                tradeElement.innerHTML = `
+                    <p>Trade ID: ${trade.id}</p>
+                    <p>From: ${trade.sender_id}</p>
+                    <p>Offered: ${trade.offered_stacks}</p>
+                    <p>Requested: ${trade.requested_stacks}</p>
+                    <p>Status: ${trade.status}</p>
+                    <button onclick="acceptTrade(${trade.id})">Accept</button>
+                    <button onclick="declineTrade(${trade.id})">Decline</button>
+                `;
+                incomingTradesContainer.appendChild(tradeElement);
+            });
+        }
+
+        // Accept a trade
+        async function acceptTrade(tradeId) {
+            try {
+                const response = await fetch(`/accept_trade/${tradeId}`, { method: 'POST', credentials: 'include' });
+                if (response.ok) {
+                    alert('Trade accepted successfully.');
+                    loadIncomingTrades();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to accept trade.');
+                }
+            } catch (err) {
+                console.error('Error accepting trade:', err);
+            }
+        }
+
+        // Decline a trade
+        async function declineTrade(tradeId) {
+            try {
+                const response = await fetch(`/decline_trade/${tradeId}`, { method: 'POST', credentials: 'include' });
+                if (response.ok) {
+                    alert('Trade declined successfully.');
+                    loadIncomingTrades();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to decline trade.');
+                }
+            } catch (err) {
+                console.error('Error declining trade:', err);
+            }
+        }
+
         // Call loadPacks and updateCoinBalance on page load
         document.addEventListener('DOMContentLoaded', () => {
-            loadPacks();
-            updateCoinBalance();
-            loadUserCards();
+            loadPacks(); // Load packs dynamically
+            updateCoinBalance(); // Update coin balance
+            loadUserCards(); // Load cards for the packs page
+            loadTradingCards(); // Load cards for the trading page
+            loadOutgoingTrades(); // Load outgoing trades
+            loadIncomingTrades(); // Load incoming trades
+            updateCollectionSize(); // Update collection size dynamically
         });
+
+        let selectedCard = null;
+
+        function selectCard(card) {
+            // Remove the highlight from the previous selection
+            if (selectedCard) {
+                selectedCard.classList.remove('selected');
+            }
+
+            // Set the new selection
+            selectedCard = card;
+            card.classList.add('selected');
+        }
+
+        function trade() {
+            const opponentCard = prompt("Enter opponent's card name:");
+            
+            if (!selectedCard || !opponentCard) {
+                alert('Select your card and enter the opponent card.');
+                return;
+            }
+
+            fetch('/create_trade', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    player_card: selectedCard.dataset.card,
+                    opponent_card: opponentCard
+                })
+            })
+            .then(res => res.json())
+            .then(data => alert(data.message))
+            .catch(err => console.error(err));
+        }
     </script>
+    <script src="/static/js/battle.js"></script>
 </body>
 </html>

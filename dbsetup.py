@@ -30,9 +30,9 @@ def generate_family_attacks(families):
     
     family_attacks = {}
     for family in families:
-        attacks = random.sample(attack_templates, 4)
-        descriptions = random.sample(description_templates, 4)
-        family_attacks[family] = list(zip(attacks, descriptions))
+        attacks = [template.format(family=family) for template in attack_templates]
+        descriptions = [template.format(family=family) for template in description_templates]
+        family_attacks[family] = list(zip(random.sample(attacks, 4), random.sample(descriptions, 4)))
     return family_attacks
 
 def get_wiki_image(query):
@@ -69,7 +69,7 @@ def download_image(url, name):
         return img_path
     except Exception as e:
         print(f"Failed to download {url}: {e}")
-        return "missing_image.png"
+        return f"{IMG_DIR}/No_Image_Available.jpg"
 
 def setup_database():
     if os.path.exists(DB_FILE):
@@ -83,20 +83,24 @@ def setup_database():
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL
+        password_hash TEXT NOT NULL,
+        coins INTEGER DEFAULT 1000
     );
 
     CREATE TABLE IF NOT EXISTS cards (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
+        family TEXT NOT NULL,
         attack TEXT NOT NULL,
         attack_description TEXT NOT NULL,
-        image_path TEXT NOT NULL
+        image_path TEXT NOT NULL,
+        rarity TEXT NOT NULL DEFAULT 'common'  -- Added rarity column
     );
 
     CREATE TABLE IF NOT EXISTS packs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL
+        name TEXT NOT NULL,
+        icon_path TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS pack_cards (
@@ -129,6 +133,7 @@ def setup_database():
     family_attacks = generate_family_attacks(families)
     
     # Load CSV and assign attacks
+    card_ids = {}
     with open(CSV_FILE, "r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -136,22 +141,41 @@ def setup_database():
             family = row["Family"]
             attack, attack_description = random.choice(family_attacks[family])
             print(f"Fetching image for {name}...")
-            img_url = get_wiki_image(name) or "missing_image.png"
-            if img_url != "missing_image.png":
+            img_url = get_wiki_image(name) or f"{IMG_DIR}/No_Image_Available.jpg"
+            if img_url != f"{IMG_DIR}/No_Image_Available.jpg":
                 img_path = download_image(img_url, name.replace(" ", "_"))
             else:
-                img_path = "missing_image.png"
-            cur.execute("INSERT INTO cards (name, attack, attack_description, image_path) VALUES (?, ?, ?, ?)", 
-                        (name, attack, attack_description, img_path))
+                img_path = f"{IMG_DIR}/No_Image_Available.jpg"
+            cur.execute("INSERT INTO cards (name, family, attack, attack_description, image_path, rarity) VALUES (?, ?, ?, ?, ?, ?)", 
+                        (name, family, attack, attack_description, img_path, row.get("Rarity", "common")))
+            card_ids[name] = cur.lastrowid
             time.sleep(0.5)  # Avoid rate limits
 
-    # Populate packs
-    packs = [("Starter Pack",), ("Jungle Pack",), ("Ocean Pack",)]
-    cur.executemany("INSERT OR IGNORE INTO packs (name) VALUES (?)", packs)
+    # Populate packs with icons
+    packs = [
+        ("Starter Pack", "static/images/Starter_Pack.jpg"),
+        ("Jungle Pack", "static/images/Jungle_Pack.jpg"),
+        ("Ocean Pack", "static/images/Ocean_Pack.jpg")
+    ]
+    cur.executemany("INSERT OR IGNORE INTO packs (name, icon_path) VALUES (?, ?)", packs)
+
+    # Assign cards to packs with weights
+    pack_card_weights = {
+        "Starter Pack": {"common": 70, "rare": 25, "legendary": 5},
+        "Jungle Pack": {"common": 60, "rare": 30, "legendary": 10},
+        "Ocean Pack": {"common": 50, "rare": 35, "legendary": 15}
+    }
+    for pack_name, weights in pack_card_weights.items():
+        cur.execute("SELECT id FROM packs WHERE name = ?", (pack_name,))
+        pack_id = cur.fetchone()[0]
+        for card_name, card_id in card_ids.items():
+            rarity = random.choices(["common", "rare", "legendary"], weights=[weights["common"], weights["rare"], weights["legendary"]])[0]
+            weight = {"common": 1, "rare": 2, "legendary": 3}[rarity]
+            cur.execute("INSERT INTO pack_cards (pack_id, card_id, weight) VALUES (?, ?, ?)", (pack_id, card_id, weight))
 
     conn.commit()
     conn.close()
-    print("Database initialized with Wikimedia images and unique attacks per family.")
+    print("Database initialized with Wikimedia images, unique attacks per family, and pack icons.")
 
 if __name__ == "__main__":
     setup_database()
