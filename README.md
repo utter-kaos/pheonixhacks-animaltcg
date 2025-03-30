@@ -76,12 +76,15 @@ Follow these steps to set up and run the project locally:
 │   ├── styles.css        # Main stylesheet \
 │   ├── js/ \
 │   │   └── battle.js     # JavaScript for battle mechanics \
-│   └── images/           # Animal images and placeholders \
+│   └── images/           # Pack images and placeholder \
+│   └── animal_images/    # Animal images \
 ├── templates/            # HTML templates \
 │   ├── index.html        # Main UI \
+│   ├── login.html        # Login Page
+│   ├── register.html     # Register Page
 │   └── profile.html      # Profile page \
 ├── battle/               # Battle-related data \
-│   └── good.csv          # Card stats for battles \ 
+│   └── good.csv          # Animal Attack info calculated from animal dataset then fed into the db \ 
 ├── Animal Dataset.csv    # Dataset of animals with stats \
 └── README.md             # Project documentation \
 
