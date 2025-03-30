@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCG Collector</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="header">
+        <h1 class="title">TCG Collector</h1>
+        <div class="auth-section">
+            <span id="usernameDisplay" class="username-display"></span>
+            <span id="coinBalance" class="username-display">Coins: 0</span>
+            <button class="auth-btn" id="giveCoinsBtn" onclick="giveCoins()">Give Coins</button>
+            <button class="auth-btn login-btn" id="loginBtn" onclick="window.location.href='/login'">Login</button>
+            <button class="auth-btn logout-btn" id="logoutBtn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="navbar">
+        <div class="nav-tab active" onclick="switchTab('packs')">Packs</div>
+        <div class="nav-tab" onclick="switchTab('trading')">Trading</div>
+        <div class="nav-tab" onclick="switchTab('profile')">Profile</div>
+    </div>
+    
+    <!-- Packs Tab Content -->
+    <div id="packs" class="tab-content active">
+        <div id="pack-section" class="pack-section">
+            <!-- Packs will be dynamically loaded here -->
+        </div>
+        <div id="selected-pack-actions" class="selected-pack-actions">
+            <p id="selected-pack-name" class="selected-pack-name"></p>
+            <button class="open-pack-btn" onclick="confirmOpenPack()">Open Selected Pack</button>
+        </div>
+        <h2>Your Collection <span id="collectionSize">(0/205)</span></h2>
+        <button class="clear-cards-btn" onclick="clearCards()">Clear Cards</button>
+        <div id="collection-grid" class="cards-grid"></div>
+    </div>
+
+    <style>
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .auth-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .auth-btn {
+            padding: 5px 10px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .auth-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .username-display {
+            font-weight: bold;
+        }
+
+        .pack-section {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .pack {
+            text-align: center;
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            padding: 10px;
+            transition: border-color 0.3s;
+        }
+
+        .pack:hover {
+            border-color: #3498db;
+        }
+
+        .pack.selected {
+            border-color: #e74c3c;
+        }
+
+        .pack img {
+            width: 150px;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+
+        .pack-name {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .pack-cost {
+            margin-top: 5px;
+            color: #7f8c8d;
+        }
+
+        .clear-cards-btn {
+            margin: 10px 0;
+            padding: 5px 10px;
+            border: none;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .clear-cards-btn:hover {
+            background-color: #c82333;
+        }
+
+        .selected-pack-actions {
+            text-align: center;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .selected-pack-name {
+            font-weight: bold;
+        }
+    </style>
+    
+    <!-- Trading Tab Content -->
+    <div id="trading" class="tab-content">
+        <div class="trade-container">
+            <div class="trade-column">
+                <h3 class="trade-header">Your Cards</h3>
+                <div id="your-cards" class="cards-grid"></div>
+            </div>
+            <div class="trade-column">
+                <h3 class="trade-header">Trade Offers</h3>
+                <div id="trade-offers" class="cards-grid"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Profile Tab Content -->
+    <div id="profile" class="tab-content">
+        <div class="profile-header">
+            <div class="avatar" id="avatar">?</div>
+            <div>
+                <h2 id="profileUsername">Guest</h2>
+                <p>Member since: <span id="memberSince">Not logged in</span></p>
+                <p>Coins: <strong id="coins">0</strong></p> <!-- Display user coins -->
+            </div>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalCards">0</div>
+                <div class="stat-label">Cards Collected</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="tradesCompleted">0</div>
+                <div class="stat-label">Trades Completed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="rareCards">0</div>
+                <div class="stat-label">Rare Cards</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check auth status on load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuthStatus();
+            loadUserCards();
+        });
+
+        // Auth functions
+        async function checkAuthStatus() {
+            try {
+                const response = await fetch('/check_auth', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.logged_in) {
+                        document.getElementById('loginBtn').style.display = 'none';
+                        document.getElementById('logoutBtn').style.display = 'block';
+                        document.getElementById('usernameDisplay').textContent = data.username;
+                        document.getElementById('profileUsername').textContent = data.username;
+                        document.getElementById('avatar').textContent = data.username.charAt(0).toUpperCase();
+                    } else {
+                        window.location.href = '/login';
+                    }
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (err) {
+                console.error('Auth check error:', err);
+                window.location.href = '/login';
+            }
+        }
+
+        async function logout() {
+            try {
+                const response = await fetch('/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                window.location.reload();
+            } catch (err) {
+                console.error('Logout error:', err);
+            }
+        }
+
+        // Tab switching
+        function switchTab(tabId) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Deactivate all nav items
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activate clicked nav item
+            event.currentTarget.classList.add('active');
+        }
+
+        // Pack functions
+        async function openPack(packId) {
+            try {
+                const response = await fetch('/open_pack', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pack_id: packId })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    loadUserCards();
+                    alert(`Opened pack! Got ${data.cards.length} new cards!`);
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to open pack');
+                }
+            } catch (err) {
+                console.error('Error opening pack:', err);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        // Function to update the collection size
+        function updateCollectionSize(count) {
+            document.getElementById('collectionSize').textContent = `(${count}/205)`;
+        }
+
+        // Function to display cards in the collection
+        function displayCards(cards) {
+            const collectionGrid = document.getElementById('collection-grid');
+            const yourCardsGrid = document.getElementById('your-cards');
+            collectionGrid.innerHTML = '';
+            yourCardsGrid.innerHTML = '';
+
+            cards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card';
+                cardElement.innerHTML = `
+                    <div class="card-rarity">${card.rarity}</div>
+                    <img src="static/${card.image_path}" alt="${card.name}" class="card-image" onerror="this.src='static/images/No_Image_Available.jpg'">
+                    <div class="card-name">${card.name}</div>
+                    <div class="card-attack"><strong>Attack:</strong> ${card.attack}</div>
+                    <div class="card-description"><strong>Description:</strong> ${card.attack_description}</div>
+                `;
+
+                // Add the card to both the collection grid and the user's cards grid
+                collectionGrid.appendChild(cardElement.cloneNode(true));
+                yourCardsGrid.appendChild(cardElement.cloneNode(true));
+            });
+
+            // Update the collection size
+            updateCollectionSize(cards.length);
+        }
+
+        // Load user cards dynamically
+        async function loadUserCards() {
+            try {
+                const response = await fetch('/user_cards', {
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayCards(data.cards);
+                } else {
+                    console.error('Failed to load user cards');
+                }
+            } catch (err) {
+                console.error('Error loading user cards:', err);
+            }
+        }
+
+        // Load packs dynamically
+        async function loadPacks() {
+            try {
+                const response = await fetch('/packs');
+                if (response.ok) {
+                    const data = await response.json();
+                    const packSection = document.getElementById('pack-section');
+                    packSection.innerHTML = ''; // Clear existing packs
+
+                    data.packs.forEach(pack => {
+                        const packElement = document.createElement('div');
+                        packElement.className = 'pack';
+                        packElement.dataset.packId = pack.id;
+                        const imageName = pack.name.replace(/ /g, "_") + ".jpg";
+                        packElement.innerHTML = `
+                            <img src="static/images/${imageName}" alt="${pack.name}">
+                            <p class="pack-name">${pack.name}</p>
+                            <p class="pack-cost">100 coins per pack</p>
+                        `;
+                        packElement.addEventListener('click', () => selectPack(pack.id, pack.name));
+                        packSection.appendChild(packElement);
+                    });
+                } else {
+                    console.error('Failed to load packs');
+                }
+            } catch (err) {
+                console.error('Error loading packs:', err);
+            }
+        }
+
+        // Select a pack
+        function selectPack(packId, packName) {
+            // Deselect previously selected pack
+            document.querySelectorAll('.pack').forEach(pack => {
+                pack.classList.remove('selected');
+            });
+
+            // Highlight the selected pack
+            const selectedPack = document.querySelector(`.pack[data-pack-id="${packId}"]`);
+            selectedPack.classList.add('selected');
+
+            // Update selected pack details
+            selectedPackId = packId;
+            document.getElementById('selected-pack-name').textContent = `Selected Pack: ${packName}`;
+            document.getElementById('selected-pack-actions').style.display = 'block';
+        }
+
+        // Confirm and open the selected pack
+        async function confirmOpenPack() {
+            if (!selectedPackId) {
+                alert('Please select a pack first!');
+                return;
+            }
+
+            try {
+                const response = await fetch('/open_pack', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pack_id: selectedPackId })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    loadUserCards();
+                    updateCoinBalance(data.coins); // Update coin balance
+                    alert(`Opened pack! Got ${data.cards.length} new cards!`);
+                    // Reset selection
+                    selectedPackId = null;
+                    document.getElementById('selected-pack-actions').style.display = 'none';
+                    document.querySelectorAll('.pack').forEach(pack => {
+                        pack.classList.remove('selected');
+                    });
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to open pack');
+                }
+            } catch (err) {
+                console.error('Error opening pack:', err);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        // Update coin balance display
+        async function updateCoinBalance(coins = null) {
+            try {
+                if (coins !== null) {
+                    document.getElementById('coinBalance').textContent = `Coins: ${coins}`;
+                    return;
+                }
+
+                const response = await fetch('/check_auth', {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.logged_in) {
+                        document.getElementById('coinBalance').textContent = `Coins: ${data.coins}`;
+                    }
+                }
+            } catch (err) {
+                console.error('Error updating coin balance:', err);
+            }
+        }
+
+        // Give coins to the user
+        async function giveCoins() {
+            try {
+                const response = await fetch('/give_coins', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    alert(data.message);
+                    updateCoinBalance();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to give coins');
+                }
+            } catch (err) {
+                console.error('Error giving coins:', err);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        // Clear all cards from the user's collection
+        async function clearCards() {
+            try {
+                const response = await fetch('/clear_cards', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    alert('Your collection has been cleared.');
+                    loadUserCards(); // Reload the user's cards
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to clear cards.');
+                }
+            } catch (err) {
+                console.error('Error clearing cards:', err);
+                alert('Network error. Please try again.');
+            }
+        }
+
+        // Call loadPacks and updateCoinBalance on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPacks();
+            updateCoinBalance();
+            loadUserCards();
+        });
+    </script>
+</body>
+</html>
