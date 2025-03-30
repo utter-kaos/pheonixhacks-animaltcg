@@ -94,7 +94,7 @@ def setup_database():
         attack TEXT NOT NULL,
         attack_description TEXT NOT NULL,
         image_path TEXT NOT NULL,
-        rarity TEXT NOT NULL DEFAULT 'common'  -- Added rarity column
+        rarity TEXT NOT NULL DEFAULT 'common'
     );
 
     CREATE TABLE IF NOT EXISTS packs (
@@ -119,6 +119,16 @@ def setup_database():
         PRIMARY KEY (user_id, card_id),
         FOREIGN KEY (user_id) REFERENCES users(id),
         FOREIGN KEY (card_id) REFERENCES cards(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS battles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender_id INTEGER NOT NULL,
+        receiver_id INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        time_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (sender_id) REFERENCES users(id),
+        FOREIGN KEY (receiver_id) REFERENCES users(id)
     );
     ''')
 

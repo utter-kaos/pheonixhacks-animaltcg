@@ -116,7 +116,7 @@
                 });
 
                 if (response.ok) {
-                    window.location.href = '/profile';
+                    window.location.href = '/';
                 } else {
                     const data = await response.json();
                     errorElement.textContent = data.error || 'Login failed';

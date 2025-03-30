@@ -23,7 +23,6 @@
         <div class="nav-tab active" onclick="switchTab('packs')">Packs</div>
         <div class="nav-tab" onclick="switchTab('trading')">Trading</div>
         <div class="nav-tab" onclick="switchTab('profile')">Profile</div>
-        <div class="nav-tab" onclick="switchTab('leaderboard')">Leaderboard</div>
         <div class="nav-tab" onclick="switchTab('battles')">Battles</div>
     </div>
     
@@ -102,7 +101,7 @@
             <div class="avatar" id="avatar">?</div>
             <div>
                 <h2 id="profileUsername">Guest</h2>
-                <p>Member since: <span id="memberSince">Not logged in</span></p>
+                <p>Member since: <span id="memberSince">March 2025</span></p> <!-- Fixed to always display March 2025 -->
                 <p>Coins: <strong id="coins">0</strong></p> <!-- Display user coins -->
             </div>
         </div>
@@ -135,11 +134,7 @@
         </div>
     </div>
 
-    <!-- Leaderboard Tab Content -->
-    <div id="leaderboard" class="tab-content">
-        <h2>Leaderboard</h2>
-        <p>Coming soon: View the top players and their stats!</p>
-    </div>
+   
 
     <!-- Battles Tab Content -->
     <div id="battles" class="tab-content">
@@ -165,7 +160,15 @@
         <div id="battle-setup" class="battle-setup">
             <h3>Challenge an Opponent</h3>
             <input type="text" id="opponentUsername" placeholder="Enter opponent's username">
-            <button onclick="loadBattleCards()">Select Cards</button>
+            <div id="battle-card-selection" class="cards-scrollable">
+                <!-- User's cards will be dynamically loaded here -->
+            </div>
+            <button onclick="sendBattleRequest()">Send Battle Request</button>
+        </div>
+
+        <div id="battle-requests" class="battle-requests">
+            <h3></h3>
+            <div id="incoming-requests"></div>
         </div>
 
         <div id="card-selection" class="card-selection" style="display: none;">
@@ -231,6 +234,7 @@
                         document.getElementById('usernameDisplay').textContent = data.username;
                         document.getElementById('profileUsername').textContent = data.username;
                         document.getElementById('avatar').textContent = data.username.charAt(0).toUpperCase();
+                        document.getElementById('coins').textContent = data.coins; // Update coins dynamically
                     } else {
                         window.location.href = '/login';
                     }
@@ -255,6 +259,37 @@
             }
         }
 
+        // Function to update the coin balance dynamically
+        async function updateProfileCoins() {
+            try {
+                const response = await fetch('/check_auth', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.logged_in) {
+                        document.getElementById('coins').textContent = data.coins; // Update coins dynamically
+                    }
+                }
+            } catch (err) {
+                console.error('Error updating profile coins:', err);
+            }
+        }
+
+        // Function to update the card count dynamically
+        async function updateProfileCardCount() {
+            try {
+                const response = await fetch('/user_cards', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    const totalCards = data.cards.reduce((sum, card) => sum + (card.count || 0), 0); // Ensure card.count is valid
+                    document.getElementById('totalCards').textContent = totalCards; // Update card count dynamically
+                } else {
+                    console.error('Failed to fetch user cards for profile.');
+                }
+            } catch (err) {
+                console.error('Error updating profile card count:', err);
+            }
+        }
+
         // Tab switching
         function switchTab(tabId) {
             // Hide all tabs
@@ -272,6 +307,12 @@
             
             // Activate clicked nav item
             event.currentTarget.classList.add('active');
+
+            // Update coins and card count if switching to the profile tab
+            if (tabId === 'profile') {
+                updateProfileCoins();
+                updateProfileCardCount();
+            }
         }
 
         // Pack functions
@@ -306,6 +347,7 @@
                     const data = await response.json();
                     const uniqueCardsCount = data.cards.length; // Count unique cards
                     document.getElementById('collectionSize').textContent = `(${uniqueCardsCount}/205)`; // Update the counter
+                    document.getElementById('totalCards').textContent = uniqueCardsCount; // Update profile tab card count
                 } else {
                     console.error('Failed to fetch user cards for collection size.');
                 }
@@ -793,6 +835,31 @@
             .then(res => res.json())
             .then(data => alert(data.message))
             .catch(err => console.error(err));
+        }
+
+        function updateBattleUI() {
+            document.getElementById("user-active-card").innerHTML = `
+                <img src="static/${userActiveCard.image_path}" alt="${userActiveCard.name}" class="card-image" onerror="this.src='static/images/No_Image_Available.jpg'">
+                <p>${userActiveCard.name} (HP: ${userActiveCard.hp})</p>
+            `;
+            document.getElementById("opponent-active-card").innerHTML = `
+                <img src="static/${opponentActiveCard.image_path}" alt="${opponentActiveCard.name}" class="card-image" onerror="this.src='static/images/No_Image_Available.jpg'">
+                <p>${opponentActiveCard.name} (HP: ${opponentActiveCard.hp})</p>
+            `;
+
+            document.getElementById("user-card-1").innerHTML = userCards[0]
+                ? `<img src="static/${userCards[0].image_path}" alt="${userCards[0].name}" class="card-image" onerror="this.src='static/images/No_Image_Available.jpg'">`
+                : "";
+            document.getElementById("user-card-2").innerHTML = userCards[1]
+                ? `<img src="static/${userCards[1].image_path}" alt="${userCards[1].name}" class="card-image" onerror="this.src='static/images/No_Image_Available.jpg'">`
+                : "";
+
+            document.getElementById("opponent-card-1").innerHTML = opponentCards[0]
+                ? `<img src="static/${opponentCards[0].image_path}" alt="${opponentCards[0].name}" class="card-image" onerror="this.src='static/images/No_Image_Available.jpg'">`
+                : "";
+            document.getElementById("opponent-card-2").innerHTML = opponentCards[1]
+                ? `<img src="static/${opponentCards[1].image_path}" alt="${opponentCards[1].name}" class="card-image" onerror="this.src='static/images/No_Image_Available.jpg'">`
+                : "";
         }
     </script>
     <script src="/static/js/battle.js"></script>

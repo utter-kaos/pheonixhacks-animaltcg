@@ -198,36 +198,36 @@
     <div class="profile-header">
         <div class="avatar">P</div>
         <div>
-            <h2>Player123</h2>
-            <p>Member since: March 2025</p>
-            <p>Coins: <strong>1,250</strong></p>
+            <h2>{{ username }}</h2>
+            <p>Member since: {{ member_since }}</p>
+            <p>Coins: <strong>{{ coins }}</strong></p>
         </div>
     </div>
     
     <div class="stats-grid">
         <div class="stat-card">
-            <div class="stat-value">1,250</div>
+            <div class="stat-value">{{ cards_collected }}</div>
             <div class="stat-label">Cards Collected</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">42</div>
+            <div class="stat-value">{{ trades_completed }}</div>
             <div class="stat-label">Trades Completed</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">15</div>
+            <div class="stat-value">{{ rare_cards }}</div>
             <div class="stat-label">Rare Cards</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">3</div>
-            <div class="stat-label">Legendary Cards</div>
+            <div class="stat-value">{{ total_wins }}</div>
+            <div class="stat-label">Total Wins</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">87%</div>
-            <div class="stat-label">Collection Complete</div>
+            <div class="stat-value">{{ total_losses }}</div>
+            <div class="stat-label">Total Losses</div>
         </div>
         <div class="stat-card">
-            <div class="stat-value">5</div>
-            <div class="stat-label">Packs Opened Today</div>
+            <div class="stat-value">{{ win_rate }}</div>
+            <div class="stat-label">Win Rate</div>
         </div>
     </div>
     

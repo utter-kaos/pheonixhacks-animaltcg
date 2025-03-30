@@ -236,11 +236,10 @@ function displayIncomingBattles(battles) {
         const battleElement = document.createElement("div");
         battleElement.className = "battle-entry";
         battleElement.innerHTML = `
-            <p>Battle ID: ${battle.id}</p>
-            <p>From: ${battle.sender_id}</p>
-            <p>Status: ${battle.status}</p>
-            <button onclick="acceptBattle(${battle.id})">Accept</button>
-            <button onclick="declineBattle(${battle.id})">Decline</button>
+            <p>Battle ID: ${battle.battle_id}</p>
+            <p>From: Challenger ID ${battle.challenger_id}</p>
+            <button onclick="acceptBattleRequest(${battle.battle_id})">Accept</button>
+            <button onclick="declineBattle(${battle.battle_id})">Decline</button>
         `;
         incomingBattlesContainer.appendChild(battleElement);
     });
@@ -303,6 +302,82 @@ async function abortBattle() {
     } catch (err) {
         console.error("Error aborting battle:", err);
     }
+}
+
+async function sendBattleRequest() {
+    const opponentUsername = document.getElementById("opponentUsername").value;
+    if (!opponentUsername) {
+        alert("Enter opponent username.");
+        return;
+    }
+
+    if (selectedBattleCards.length !== 3) {
+        alert("Select exactly 3 cards to send a battle request.");
+        return;
+    }
+
+    try {
+        const response = await fetch('/request_battle', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ opponent_username: opponentUsername, selected_cards: selectedBattleCards })
+        });
+
+        if (response.ok) {
+            alert("Battle request sent!");
+            selectedBattleCards = []; // Clear selected cards after sending the request
+            document.querySelectorAll(".trading-card.selected").forEach(card => card.classList.remove("selected"));
+        } else {
+            const error = await response.json();
+            alert(error.error || "Failed to send battle request.");
+        }
+    } catch (err) {
+        console.error("Error sending battle request:", err);
+    }
+}
+
+// Function to load user's cards for selection when sending a battle request
+async function loadBattleRequestCards() {
+    try {
+        const response = await fetch('/user_cards', { credentials: 'include' });
+        if (response.ok) {
+            const data = await response.json();
+            displayBattleCardSelection(data.cards);
+        } else {
+            alert("Failed to load cards for battle request.");
+        }
+    } catch (err) {
+        console.error("Error loading battle request cards:", err);
+    }
+}
+
+// Call `loadBattleRequestCards` when the battle setup section is displayed
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById("battle-setup").addEventListener("click", loadBattleRequestCards);
+});
+
+async function acceptBattleRequest(battleId) {
+    alert("Battle in progress... Please wait...");
+    setTimeout(async () => {
+        try {
+            const response = await fetch(`/accept_battle/${battleId}`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                alert(`${data.message} 100 coins have been awarded to the winner.`);
+                loadIncomingBattles(); // Refresh the incoming battles list
+            } else {
+                const error = await response.json();
+                alert(error.error || "Failed to accept battle.");
+            }
+        } catch (err) {
+            console.error("Error accepting battle:", err);
+        }
+    }, 3000); // Wait for 3 seconds before determining the winner
 }
 
 // Call loadOutgoingBattles and loadIncomingBattles on page load

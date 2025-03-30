@@ -4,6 +4,8 @@ import bcrypt
 from functools import wraps  # Import wraps to fix the decorator issue
 from random import random
 import logging
+import csv
+
 # App Configuration
 app = Flask(__name__, static_folder='static', static_url_path='/static')
 app.secret_key = 'your-secret-key-here'
@@ -421,159 +423,81 @@ def get_opponent_cards():
 # In-memory storage for active battles
 active_battles = {}
 
-@app.route('/start_battle', methods=['POST'])
+# Load card stats from good.csv
+card_stats = {}
+with open('battle/good.csv', 'r') as file:
+    reader = csv.reader(file)
+    for row in reader:
+        # Skip empty rows or rows with insufficient columns
+        if len(row) < 3:
+            continue
+        try:
+            card_name, hp, damage = row[0], int(row[1]), int(row[2])
+            card_stats[card_name] = {"hp": hp, "damage": damage}
+        except ValueError:
+            # Skip rows with invalid data
+            continue
+
+@app.route('/request_battle', methods=['POST'])
 @login_required
-def start_battle():
-    user_id = request.cookies.get('user_id')
+def request_battle():
+    """Send a battle request to another player."""
     data = request.json
-    opponent_username = data.get('opponent_username', '').strip()
-    selected_cards = data.get('selected_cards', [])
+    opponent_username = data.get('opponent_username')
+    selected_cards = data.get('selected_cards')
 
-    if not opponent_username or len(selected_cards) != 3:
-        return jsonify({"error": "Opponent username and exactly 3 selected cards are required"}), 400
+    if not opponent_username or not selected_cards or len(selected_cards) != 3:
+        return jsonify({"error": "Invalid request"}), 400
 
-    opponent = query_db("SELECT id FROM users WHERE username = ?", [opponent_username], one=True)
+    # Check if opponent exists
+    opponent = query_db("SELECT id FROM users WHERE username = ?", (opponent_username,), one=True)
     if not opponent:
         return jsonify({"error": "Opponent not found"}), 404
 
-    if user_id in active_battles or opponent['id'] in active_battles:
-        logging.debug(f"User {user_id} or opponent {opponent['id']} is already in an active battle.")
-        return jsonify({"error": "One of the players is already in a battle"}), 400
+    opponent_id = opponent['id']
+    user_id = int(request.cookies.get('user_id'))
 
-    user_cards = query_db("""
-        SELECT cards.id, cards.name, cards.hp, cards.atk_power
-        FROM user_cards
-        JOIN cards ON user_cards.card_id = cards.id
-        WHERE user_cards.user_id = ? AND cards.id IN (?, ?, ?)
-    """, [user_id] + selected_cards)
-
-    opponent_cards = query_db("""
-        SELECT cards.id, cards.name, cards.hp, cards.atk_power
-        FROM user_cards
-        JOIN cards ON user_cards.card_id = cards.id
-        WHERE user_cards.user_id = ?
-        ORDER BY RANDOM()
-        LIMIT 3
-    """, (opponent['id'],))
-
-    if len(user_cards) != 3 or len(opponent_cards) != 3:
-        return jsonify({"error": "Both players must have 3 cards"}), 400
-
-    active_battles[user_id] = {
-        "opponent_id": opponent['id'],
-        "user_cards": user_cards,
-        "opponent_cards": opponent_cards,
-        "user_active_card": user_cards.pop(0),
-        "opponent_active_card": opponent_cards.pop(0),
-        "log": []
+    # Store battle request
+    battle_id = len(active_battles) + 1
+    active_battles[battle_id] = {
+        "challenger_id": user_id,
+        "opponent_id": opponent_id,
+        "challenger_cards": selected_cards,
+        "opponent_cards": None,
+        "log": [],
+        "winner": None
     }
-    active_battles[opponent['id']] = {
-        "opponent_id": user_id,
-        "user_cards": opponent_cards,
-        "opponent_cards": user_cards,
-        "user_active_card": opponent_cards.pop(0),
-        "opponent_active_card": user_cards.pop(0),
-        "log": []
-    }
-    logging.debug(f"Battle started: User {user_id} vs Opponent {opponent['id']}")
 
-    return jsonify({
-        "message": "Battle started",
-        "user_cards": active_battles[user_id]["user_cards"],
-        "opponent_cards": active_battles[user_id]["opponent_cards"]
-    }), 200
+    return jsonify({"message": "Battle request sent", "battle_id": battle_id}), 200
 
-@app.route('/use_move', methods=['POST'])
+@app.route('/accept_battle/<int:battle_id>', methods=['POST'])
 @login_required
-def use_move():
-    user_id = request.cookies.get('user_id')
-    data = request.json
-    move_index = data.get('move_index')
+def accept_battle(battle_id):
+    """Accept a battle request and randomly determine the winner."""
+    if battle_id not in active_battles:
+        return jsonify({"error": "Battle not found"}), 404
 
-    if user_id not in active_battles:
-        return jsonify({"error": "No active battle found"}), 400
+    battle = active_battles[battle_id]
+    user_id = int(request.cookies.get('user_id'))
 
-    battle = active_battles[user_id]
-    user_card = battle["user_active_card"]
-    opponent_card = battle["opponent_active_card"]
+    if battle["opponent_id"] != user_id:
+        return jsonify({"error": "You are not the opponent"}), 403
 
-    # User's turn
-    if random() <= 0.85:  # 85% hit chance
-        damage = user_card["atk_power"]
-        opponent_card["hp"] -= damage
-        battle["log"].append(f"{user_card['name']} used Move {move_index}! It hit for {damage} damage.")
-    else:
-        battle["log"].append(f"{user_card['name']} used Move {move_index}! It missed.")
+    # Randomly select a winner
+    import random
+    winner = random.choice(["challenger", "opponent"])
+    winner_id = battle["challenger_id"] if winner == "challenger" else battle["opponent_id"]
 
-    # Check if opponent's card fainted
-    if opponent_card["hp"] <= 0:
-        battle["log"].append(f"{opponent_card['name']} fainted!")
-        if battle["opponent_cards"]:
-            battle["opponent_active_card"] = battle["opponent_cards"].pop(0)
-            opponent_card = battle["opponent_active_card"]
-            battle["log"].append(f"Opponent sent out {opponent_card['name']}!")
-        else:
-            end_battle(user_id, True)
-            return jsonify({"message": "You won the battle!", "log": battle["log"]}), 200
+    # Award 100 coins to the winner
+    execute_db("UPDATE users SET coins = coins + 100 WHERE id = ?", (winner_id,))
 
-    # Opponent's turn
-    if random() <= 0.85:  # 85% hit chance
-        damage = opponent_card["atk_power"]
-        user_card["hp"] -= damage
-        battle["log"].append(f"{opponent_card['name']} attacked! It hit for {damage} damage.")
-    else:
-        battle["log"].append(f"{opponent_card['name']} attacked! It missed.")
+    # Remove the battle from active battles
+    active_battles.pop(battle_id, None)
 
-    # Check if user's card fainted
-    if user_card["hp"] <= 0:
-        battle["log"].append(f"{user_card['name']} fainted!")
-        if battle["user_cards"]:
-            battle["user_active_card"] = battle["user_cards"].pop(0)
-            user_card = battle["user_active_card"]
-            battle["log"].append(f"You sent out {user_card['name']}!")
-        else:
-            end_battle(user_id, False)
-            return jsonify({"message": "You lost the battle!", "log": battle["log"]}), 200
-
+    # Return the result
     return jsonify({
-        "user_active_card": battle["user_active_card"],
-        "opponent_active_card": battle["opponent_active_card"],
-        "log": battle["log"]
-    }), 200
-
-@app.route('/opponent_turn', methods=['POST'])
-@login_required
-def opponent_turn():
-    user_id = request.cookies.get('user_id')
-
-    if user_id not in active_battles:
-        return jsonify({"error": "No active battle found"}), 400
-
-    battle = active_battles[user_id]
-    user_card = battle["user_active_card"]
-    opponent_card = battle["opponent_active_card"]
-
-    if random() <= 0.85:  # 85% hit chance
-        damage = opponent_card["atk_power"]
-        user_card["hp"] -= damage
-        battle["log"].append(f"{opponent_card['name']} attacked! It hit for {damage} damage.")
-    else:
-        battle["log"].append(f"{opponent_card['name']} attacked! It missed.")
-
-    if user_card["hp"] <= 0:
-        battle["log"].append(f"{user_card['name']} fainted!")
-        if battle["user_cards"]:
-            battle["user_active_card"] = battle["user_cards"].pop(0)
-            user_card = battle["user_active_card"]
-            battle["log"].append(f"You sent out {user_card['name']}!")
-        else:
-            end_battle(user_id, False)
-            return jsonify({"message": "You lost the battle!", "log": battle["log"]}), 200
-
-    return jsonify({
-        "user_active_card": battle["user_active_card"],
-        "opponent_active_card": battle["opponent_active_card"],
-        "log": battle["log"]
+        "message": f"{winner.capitalize()} wins!",
+        "winner": winner
     }), 200
 
 @app.route('/abort_battle', methods=['POST'])
@@ -602,13 +526,18 @@ def abort_battle():
 @app.route('/incoming_battles', methods=['GET'])
 @login_required
 def incoming_battles():
+    """Retrieve incoming battle requests for the logged-in user."""
     user_id = request.cookies.get('user_id')
-    incoming_battles = query_db("""
-        SELECT id, sender_id, status, time_created
-        FROM battles
-        WHERE receiver_id = ? AND status = 'pending'
-    """, (user_id,))
-    return jsonify({"battles": [dict(battle) for battle in incoming_battles]})
+    incoming_battles = [
+        {
+            "battle_id": battle_id,
+            "challenger_id": battle["challenger_id"],
+            "challenger_cards": battle["challenger_cards"],
+        }
+        for battle_id, battle in active_battles.items()
+        if battle["opponent_id"] == int(user_id) and battle["opponent_cards"] is None
+    ]
+    return jsonify({"battles": incoming_battles}), 200
 
 @app.route('/outgoing_battles', methods=['GET'])
 @login_required
@@ -620,33 +549,6 @@ def outgoing_battles():
         WHERE sender_id = ?
     """, (user_id,))
     return jsonify({"battles": [dict(battle) for battle in battles]})
-
-@app.route('/accept_battle/<int:battle_id>', methods=['POST'])
-@login_required
-def accept_battle(battle_id):
-    user_id = request.cookies.get('user_id')
-    battle = query_db("""
-        SELECT sender_id, receiver_id, status
-        FROM battles
-        WHERE id = ? AND status = 'pending'
-    """, (battle_id,), one=True)
-
-    if not battle:
-        return jsonify({"error": "Battle not found or already processed."}), 404
-
-    if battle['receiver_id'] != int(user_id):
-        return jsonify({"error": "You are not authorized to accept this battle."}), 403
-
-    try:
-        # Update battle status to accepted
-        execute_db("""
-            UPDATE battles
-            SET status = 'accepted'
-            WHERE id = ?
-        """, (battle_id,))
-        return jsonify({"message": "Battle accepted successfully."}), 200
-    except sqlite3.Error as e:
-        return jsonify({"error": f"Database error: {e}"}), 500
 
 @app.route('/decline_battle/<int:battle_id>', methods=['POST'])
 @login_required
